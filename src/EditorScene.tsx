@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { State, StateMachine } from './util';
+import type { SceneObject } from './stores';
 
 export default class EditorScene extends Phaser.Scene {
   desk!: Phaser.GameObjects.Rectangle;
@@ -24,6 +25,32 @@ export default class EditorScene extends Phaser.Scene {
 
   setSize(width: number, height: number) {
     this.desk.setDisplaySize(width, height);
+  }
+
+  addSceneObject(sceneObject: SceneObject) {
+    let gameObject: Phaser.GameObjects.GameObject;
+    switch (sceneObject.type) {
+      case 'rectangle': {
+        const { x, y, width, height, fillColor, fillAlpha } = sceneObject;
+        const rectangle = this.add.rectangle(x, y, width, height, fillColor, fillAlpha);
+        gameObject = rectangle;
+        break;
+      }
+    }
+
+    gameObject.setData('id', sceneObject.id);
+  }
+
+  syncSceneObject(sceneObject: SceneObject) {
+    const gameObject = this.children.list.find((go) => go.getData('id') === sceneObject.id);
+    if (!gameObject) {
+      throw new Error(`Could not find game object for scene object with id ${sceneObject.id}`);
+    }
+
+    const keys = ['x', 'y', 'width', 'height', 'fillColor', 'fillAlpha'] as const;
+    for (const key of keys) {
+      (gameObject as Phaser.GameObjects.Rectangle)[key] = sceneObject[key];
+    }
   }
 
   update() {

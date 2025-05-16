@@ -1,6 +1,7 @@
 import { AppShell } from '@mantine/core';
 import PhaserSceneContainer from './PhaserSceneContainer';
-import SceneProperties from './SceneProperties';
+import Properties from './Properties';
+import Outline from './Outline';
 
 export default function App() {
   return (
@@ -16,12 +17,14 @@ export default function App() {
       <AppShell.Header p="md">
         <div>Phaser Scene Editor</div>
       </AppShell.Header>
-      <AppShell.Navbar p="md">Navbar</AppShell.Navbar>
+      <AppShell.Navbar p="md">
+        <Outline />
+      </AppShell.Navbar>
       <AppShell.Main>
         <PhaserSceneContainer />
       </AppShell.Main>
       <AppShell.Aside p="md">
-        <SceneProperties />
+        <Properties />
       </AppShell.Aside>
     </AppShell>
   );
