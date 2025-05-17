@@ -24,7 +24,7 @@ export type SceneObject = RectangleSceneObject;
 
 type EditorFocus = { type: 'scene' } | { type: 'object'; id: string };
 
-interface StoreState {
+export interface StoreState {
   game: Phaser.Game | null;
   editorFocus: EditorFocus;
   sceneProperties: SceneProperties;
@@ -119,11 +119,9 @@ export const useStore = create<StoreState>()((set, get) => ({
         break;
     }
 
-    const editorScene = getEditorScene(get().game!);
-    editorScene.addSceneObject(newSceneObject);
-
     set((state) => ({
       sceneObjects: [...state.sceneObjects, newSceneObject],
+      editorFocus: { type: 'object', id: newSceneObject.id },
     }));
   },
 
@@ -133,27 +131,14 @@ export const useStore = create<StoreState>()((set, get) => ({
       const sceneObject = state.sceneObjects[sceneObjectIndex];
       return { sceneObjects: state.sceneObjects.toSpliced(sceneObjectIndex, 1, { ...sceneObject, [key]: value }) };
     });
-    syncSceneObject(id, get());
   },
 }));
 
-function syncGame({ game, sceneProperties }: StoreState) {
-  if (game === null) {
+function syncGame(state: StoreState) {
+  if (state.game === null) {
     return;
   }
 
-  const editorScene = getEditorScene(game);
-
-  // Scene properties
-  editorScene.setSize(sceneProperties.width, sceneProperties.height);
-}
-
-function syncSceneObject(id: string, { game, sceneObjects }: StoreState) {
-  const sceneObject = sceneObjects.find((o) => o.id === id)!;
-  if (game === null || sceneObject === undefined) {
-    return;
-  }
-
-  const editorScene = getEditorScene(game);
-  editorScene.syncSceneObject(sceneObject);
+  const editorScene = getEditorScene(state.game);
+  editorScene.syncState(state);
 }

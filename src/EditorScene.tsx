@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { State, StateMachine } from './util';
-import type { SceneObject } from './stores';
+import type { SceneObject, StoreState } from './stores';
 
 export default class EditorScene extends Phaser.Scene {
   desk!: Phaser.GameObjects.Rectangle;
   stateMachine!: StateMachine;
+  focusBorder!: Phaser.GameObjects.Rectangle;
+  sceneGameObjects!: Phaser.GameObjects.Group;
 
   constructor(config?: Phaser.Types.Scenes.SettingsConfig) {
     super({ ...config, key: 'editor' });
@@ -12,6 +14,9 @@ export default class EditorScene extends Phaser.Scene {
 
   create() {
     this.desk = this.add.rectangle(0, 0, 300, 300, 0xcccccc).setOrigin(0, 0);
+    this.focusBorder = this.add.rectangle(0, 0, 0, 0, 0, 0).setStrokeStyle(2, 0xff00ff).setVisible(false).setDepth(100);
+
+    this.sceneGameObjects = this.add.group();
 
     this.stateMachine = new StateMachine('idle', {
       idle: new IdleState(this),
@@ -23,8 +28,47 @@ export default class EditorScene extends Phaser.Scene {
     this.cameras.main.centerOn(this.desk.x + this.desk.displayWidth / 2, this.desk.y + this.desk.displayHeight / 2);
   }
 
-  setSize(width: number, height: number) {
-    this.desk.setDisplaySize(width, height);
+  syncState({ sceneProperties, sceneObjects, editorFocus }: StoreState) {
+    // Scene properties
+    this.desk.setDisplaySize(sceneProperties.width, sceneProperties.height);
+
+    // Add new game objects and update existing game objects
+    for (const sceneObject of sceneObjects) {
+      const gameObject = this.getGameObjectForSceneObjectId(sceneObject.id);
+      if (!gameObject) {
+        this.addSceneObject(sceneObject);
+      } else {
+        const keys = ['x', 'y', 'fillColor', 'fillAlpha'] as const;
+        for (const key of keys) {
+          (gameObject as Phaser.GameObjects.Rectangle)[key] = sceneObject[key];
+        }
+        (gameObject as Phaser.GameObjects.Rectangle).setSize(sceneObject.width, sceneObject.height);
+      }
+    }
+
+    // Destroy game objects with no matching scene objects
+    for (const gameObject of this.sceneGameObjects.getChildren()) {
+      const id = gameObject.getData('id');
+      const sceneObject = sceneObjects.find((sceneObject) => sceneObject.id === id);
+      if (!sceneObject) {
+        gameObject.destroy();
+      }
+    }
+
+    // Sync focus border
+    if (editorFocus.type === 'scene') {
+      this.focusBorder.setVisible(false);
+    } else {
+      const gameObject = this.getGameObjectForSceneObjectId(editorFocus.id);
+      if (!gameObject) {
+        this.focusBorder.setVisible(false);
+      } else {
+        this.focusBorder
+          .setPosition(gameObject.x, gameObject.y)
+          .setSize(gameObject.width, gameObject.height)
+          .setVisible(true);
+      }
+    }
   }
 
   addSceneObject(sceneObject: SceneObject) {
@@ -39,18 +83,13 @@ export default class EditorScene extends Phaser.Scene {
     }
 
     gameObject.setData('id', sceneObject.id);
+    this.sceneGameObjects.add(gameObject);
   }
 
-  syncSceneObject(sceneObject: SceneObject) {
-    const gameObject = this.children.list.find((go) => go.getData('id') === sceneObject.id);
-    if (!gameObject) {
-      throw new Error(`Could not find game object for scene object with id ${sceneObject.id}`);
-    }
-
-    const keys = ['x', 'y', 'width', 'height', 'fillColor', 'fillAlpha'] as const;
-    for (const key of keys) {
-      (gameObject as Phaser.GameObjects.Rectangle)[key] = sceneObject[key];
-    }
+  getGameObjectForSceneObjectId(id: string): Phaser.GameObjects.Rectangle | undefined {
+    return this.sceneGameObjects.getChildren().find((go) => go.getData('id') === id) as
+      | Phaser.GameObjects.Rectangle
+      | undefined;
   }
 
   update() {
