@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { State, StateMachine } from './util';
-import type { SceneObject, StoreState } from './stores';
+import type { StoreState } from './stores';
+import { SCENE_OBJECT_HANDLERS } from './scene_objects';
 
 export default class EditorScene extends Phaser.Scene {
   desk!: Phaser.GameObjects.Rectangle;
@@ -34,15 +35,15 @@ export default class EditorScene extends Phaser.Scene {
 
     // Add new game objects and update existing game objects
     for (const sceneObject of sceneObjects) {
+      const handler = SCENE_OBJECT_HANDLERS[sceneObject.type];
       const gameObject = this.getGameObjectForSceneObjectId(sceneObject.id);
       if (!gameObject) {
-        this.addSceneObject(sceneObject);
+        console.log('create');
+        const gameObject = handler.addGameObject(sceneObject, this);
+        gameObject.setData('id', sceneObject.id);
+        this.sceneGameObjects.add(gameObject);
       } else {
-        const keys = ['x', 'y', 'fillColor', 'fillAlpha'] as const;
-        for (const key of keys) {
-          (gameObject as Phaser.GameObjects.Rectangle)[key] = sceneObject[key];
-        }
-        (gameObject as Phaser.GameObjects.Rectangle).setSize(sceneObject.width, sceneObject.height);
+        handler.syncGameObject(sceneObject, gameObject);
       }
     }
 
@@ -69,21 +70,6 @@ export default class EditorScene extends Phaser.Scene {
           .setVisible(true);
       }
     }
-  }
-
-  addSceneObject(sceneObject: SceneObject) {
-    let gameObject: Phaser.GameObjects.GameObject;
-    switch (sceneObject.type) {
-      case 'rectangle': {
-        const { x, y, width, height, fillColor, fillAlpha } = sceneObject;
-        const rectangle = this.add.rectangle(x, y, width, height, fillColor, fillAlpha);
-        gameObject = rectangle;
-        break;
-      }
-    }
-
-    gameObject.setData('id', sceneObject.id);
-    this.sceneGameObjects.add(gameObject);
   }
 
   getGameObjectForSceneObjectId(id: string): Phaser.GameObjects.Rectangle | undefined {

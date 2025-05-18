@@ -1,26 +1,13 @@
 import { create } from 'zustand';
 import EditorScene from './EditorScene';
 import Phaser from 'phaser';
-import { v4 as uuidv4 } from 'uuid';
+import type { SceneObject } from './scene_objects';
+import { SCENE_OBJECT_HANDLERS } from './scene_objects';
 
 interface SceneProperties {
   width: number;
   height: number;
 }
-
-type BaseSceneObject = { id: string; name: string };
-
-type RectangleSceneObject = BaseSceneObject & {
-  type: 'rectangle';
-  width: number;
-  height: number;
-  x: number;
-  y: number;
-  fillColor: number;
-  fillAlpha: number;
-};
-
-export type SceneObject = RectangleSceneObject;
 
 type EditorFocus = { type: 'scene' } | { type: 'object'; id: string };
 
@@ -40,15 +27,6 @@ export interface StoreState {
 
 function getEditorScene(game: Phaser.Game) {
   return game.scene.getScene<EditorScene>('editor');
-}
-
-function uniqueName(sceneObjects: SceneObject[], baseName: string) {
-  let name = baseName;
-  let k = 1;
-  while (sceneObjects.find((o) => o.name === name)) {
-    name = `${baseName}${k++}`;
-  }
-  return name;
 }
 
 export const useStore = create<StoreState>()((set, get) => ({
@@ -99,25 +77,9 @@ export const useStore = create<StoreState>()((set, get) => ({
     set({ editorFocus: { type: 'object', id } });
   },
 
-  addSceneObject(type) {
-    const { sceneObjects } = get();
-
-    let newSceneObject: SceneObject;
-    switch (type) {
-      case 'rectangle':
-        newSceneObject = {
-          id: uuidv4(),
-          name: uniqueName(sceneObjects, 'Rectangle'),
-          type,
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 100,
-          fillColor: 0xffffff,
-          fillAlpha: 1,
-        };
-        break;
-    }
+  addSceneObject(type: keyof typeof SCENE_OBJECT_HANDLERS) {
+    const handler = SCENE_OBJECT_HANDLERS[type];
+    const newSceneObject = handler.createSceneObject(get());
 
     set((state) => ({
       sceneObjects: [...state.sceneObjects, newSceneObject],

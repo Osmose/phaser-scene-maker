@@ -1,23 +1,15 @@
 import { Modal, NavLink, Stack } from '@mantine/core';
-import { IconBox, IconList, IconPhotoScan, IconPlus, IconRectangle, IconTheater } from '@tabler/icons-react';
-import { useStore, type SceneObject } from './stores';
+import { IconList, IconPhotoScan, IconPlus, IconTheater } from '@tabler/icons-react';
+import { useStore } from './stores';
 import { useDisclosure } from '@mantine/hooks';
-
-function SceneObjectIcon({ sceneObject }: { sceneObject: SceneObject }) {
-  switch (sceneObject.type) {
-    case 'rectangle':
-      return <IconRectangle />;
-    default:
-      return <IconBox />;
-  }
-}
+import { SCENE_OBJECT_HANDLERS } from './scene_objects';
 
 export default function Outline() {
   const { editorFocus, addSceneObject, sceneObjects, focusScene, focusSceneObject } = useStore();
   const [objectChooserOpened, { open: openObjectChooser, close: closeObjectChooser }] = useDisclosure(false);
   const [assetChooserOpened, { open: openAssetChooser, close: closeAssetChooser }] = useDisclosure(false);
 
-  function makeAddSceneObjectCallback(type: Parameters<typeof addSceneObject>[0]) {
+  function makeAddSceneObjectCallback(type: keyof typeof SCENE_OBJECT_HANDLERS) {
     return () => {
       addSceneObject(type);
       closeObjectChooser();
@@ -42,7 +34,7 @@ export default function Outline() {
             key={sceneObject.id}
             href={`#${sceneObject.id}`}
             label={sceneObject.name}
-            leftSection={<SceneObjectIcon sceneObject={sceneObject} />}
+            leftSection={SCENE_OBJECT_HANDLERS[sceneObject.type].icon()}
             onClick={() => focusSceneObject(sceneObject.id)}
             active={editorFocus.type === 'object' && editorFocus.id === sceneObject.id}
           />
@@ -59,12 +51,15 @@ export default function Outline() {
       <Modal opened={objectChooserOpened} onClose={closeObjectChooser} title="Choose object type">
         <Stack align="stretch" justify="flex-start" gap="md">
           <NavLink href="#image" label="Image" leftSection={<IconPhotoScan />} />
-          <NavLink
-            href="#rectangle"
-            label="Rectangle"
-            leftSection={<IconRectangle />}
-            onClick={makeAddSceneObjectCallback('rectangle')}
-          />
+          {Object.entries(SCENE_OBJECT_HANDLERS).map(([type, handler]) => (
+            <NavLink
+              key={type}
+              href={`#${type}`}
+              label={handler.name}
+              leftSection={handler.icon()}
+              onClick={makeAddSceneObjectCallback(type as keyof typeof SCENE_OBJECT_HANDLERS)}
+            />
+          ))}
         </Stack>
       </Modal>
     </>
