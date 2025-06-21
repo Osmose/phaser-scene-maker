@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import EditorScene from './EditorScene';
 import Phaser from 'phaser';
-import type { SceneObject } from './scene_objects';
-import { SCENE_OBJECT_HANDLERS } from './scene_objects';
+import { type SceneObject, SCENE_OBJECT_HANDLERS } from './scene_objects';
+import { type Asset, ASSET_HANDLERS } from './assets';
 
 interface SceneProperties {
   width: number;
@@ -18,6 +18,7 @@ export interface StoreState {
   editorFocus: EditorFocus;
   sceneProperties: SceneProperties;
   sceneObjects: SceneObject[];
+  assets: Asset[];
   activeTool: Tool;
 
   initPhaser(container: HTMLElement): void;
@@ -26,6 +27,7 @@ export interface StoreState {
   setSceneProperty<T extends keyof SceneProperties>(key: T, value: SceneProperties[T]): void;
   addSceneObject(type: SceneObject['type']): void;
   setSceneObjectProperty<T extends keyof SceneObject>(id: string, key: T, value: SceneObject[T]): void;
+  addAsset(type: Asset['type']): void;
   setActiveTool(tool: Tool): void;
 }
 
@@ -41,6 +43,7 @@ export const useStore = create<StoreState>()((set, get) => ({
     height: 400,
   },
   sceneObjects: [],
+  assets: [],
   activeTool: 'hand',
 
   initPhaser(container) {
@@ -109,6 +112,14 @@ export const useStore = create<StoreState>()((set, get) => ({
       const sceneObject = state.sceneObjects[sceneObjectIndex];
       return { sceneObjects: state.sceneObjects.toSpliced(sceneObjectIndex, 1, { ...sceneObject, [key]: value }) };
     });
+  },
+
+  addAsset(type: keyof typeof ASSET_HANDLERS) {
+    const handler = ASSET_HANDLERS[type];
+    const newAsset = handler.createAsset(get());
+    set((state) => ({
+      assets: [...state.assets, newAsset],
+    }));
   },
 
   setActiveTool(tool: Tool) {

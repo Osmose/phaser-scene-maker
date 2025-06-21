@@ -3,9 +3,10 @@ import { IconList, IconPhotoScan, IconPlus, IconTheater } from '@tabler/icons-re
 import { useStore } from './stores';
 import { useDisclosure } from '@mantine/hooks';
 import { SCENE_OBJECT_HANDLERS } from './scene_objects';
+import { ASSET_HANDLERS } from './assets';
 
 export default function Outline() {
-  const { editorFocus, addSceneObject, sceneObjects, focusScene, focusSceneObject } = useStore();
+  const { editorFocus, addSceneObject, sceneObjects, focusScene, focusSceneObject, assets, addAsset } = useStore();
   const [objectChooserOpened, { open: openObjectChooser, close: closeObjectChooser }] = useDisclosure(false);
   const [assetChooserOpened, { open: openAssetChooser, close: closeAssetChooser }] = useDisclosure(false);
 
@@ -13,6 +14,13 @@ export default function Outline() {
     return () => {
       addSceneObject(type);
       closeObjectChooser();
+    };
+  }
+
+  function makeAddAssetCallback(type: keyof typeof ASSET_HANDLERS) {
+    return () => {
+      addAsset(type);
+      closeAssetChooser();
     };
   }
 
@@ -26,6 +34,16 @@ export default function Outline() {
         onClick={focusScene}
       />
       <NavLink href="#assets" label="Assets" childrenOffset="md" defaultOpened leftSection={<IconList />}>
+        {assets.map((asset) => (
+          <NavLink
+            key={asset.key}
+            href={`#${asset.key}`}
+            label={asset.key}
+            leftSection={ASSET_HANDLERS[asset.type].icon()}
+            // onClick={() => focusSceneObject(sceneObject.id)}
+            // active={editorFocus.type === 'object' && editorFocus.id === sceneObject.id}
+          />
+        ))}
         <NavLink label="New asset" leftSection={<IconPlus />} onClick={openAssetChooser} />
       </NavLink>
       <NavLink href="#objects" label="Objects" childrenOffset="md" defaultOpened leftSection={<IconList />}>
@@ -44,13 +62,20 @@ export default function Outline() {
 
       <Modal opened={assetChooserOpened} onClose={closeAssetChooser} title="Choose asset type">
         <Stack align="stretch" justify="flex-start" gap="md">
-          <NavLink href="#image" label="Image" leftSection={<IconPhotoScan />} />
+          {Object.entries(ASSET_HANDLERS).map(([type, handler]) => (
+            <NavLink
+              key={type}
+              href={`#${type}`}
+              label={handler.name}
+              leftSection={handler.icon()}
+              onClick={makeAddAssetCallback(type as keyof typeof ASSET_HANDLERS)}
+            />
+          ))}
         </Stack>
       </Modal>
 
       <Modal opened={objectChooserOpened} onClose={closeObjectChooser} title="Choose object type">
         <Stack align="stretch" justify="flex-start" gap="md">
-          <NavLink href="#image" label="Image" leftSection={<IconPhotoScan />} />
           {Object.entries(SCENE_OBJECT_HANDLERS).map(([type, handler]) => (
             <NavLink
               key={type}

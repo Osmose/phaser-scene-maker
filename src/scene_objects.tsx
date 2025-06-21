@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type Phaser from 'phaser';
 import type { StoreState } from './stores';
 import { IconRectangle } from '@tabler/icons-react';
+import { uniqueName } from './util';
 
 interface BaseSceneObject {
   id: string;
@@ -26,14 +27,6 @@ interface SceneObjectHandler<
   syncGameObject(sceneObject: SceneObjectType, gameObject: GameObjectType): void;
 }
 
-function uniqueName(sceneObjects: SceneObject[], baseName: string) {
-  let name = baseName;
-  let k = 1;
-  while (sceneObjects.find((o) => o.name === name)) {
-    name = `${baseName}${k++}`;
-  }
-  return name;
-}
 export interface RectangleSceneObject extends BaseSceneObject {
   type: 'rectangle';
   x: number;
@@ -63,7 +56,10 @@ export const SCENE_OBJECT_HANDLERS: {
     createSceneObject(state: StoreState) {
       return {
         id: uuidv4(),
-        name: uniqueName(state.sceneObjects, 'Rectangle'),
+        name: uniqueName(
+          state.sceneObjects.map((o) => o.name),
+          'Rectangle'
+        ),
         type: 'rectangle',
         x: 0,
         y: 0,

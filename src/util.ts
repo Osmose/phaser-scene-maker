@@ -192,3 +192,12 @@ export function asyncLoad(scene: Phaser.Scene, loadFunc: (scene: Phaser.Scene) =
     scene.load.start();
   });
 }
+
+export function uniqueName(existingNames: string[], baseName: string) {
+  let name = baseName;
+  let k = 1;
+  while (existingNames.find((n) => n === name)) {
+    name = `${baseName}${k++}`;
+  }
+  return name;
+}
