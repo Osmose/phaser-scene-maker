@@ -1,7 +1,8 @@
-import { AppShell } from '@mantine/core';
+import { AppShell, Center, Group } from '@mantine/core';
 import PhaserSceneContainer from './PhaserSceneContainer';
 import Properties from './Properties';
 import Outline from './Outline';
+import Toolbar from './Toolbar';
 
 export default function App() {
   return (
@@ -15,7 +16,12 @@ export default function App() {
       padding={0}
     >
       <AppShell.Header p="md">
-        <div>Phaser Scene Editor</div>
+        <Group preventGrowOverflow={false}>
+          <div style={{ flex: '0 0 auto' }}>Phaser Scene Editor</div>
+          <Center flex="1">
+            <Toolbar />
+          </Center>
+        </Group>
       </AppShell.Header>
       <AppShell.Navbar p="md">
         <Outline />

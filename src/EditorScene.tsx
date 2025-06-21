@@ -1,7 +1,21 @@
 import Phaser from 'phaser';
 import { State, StateMachine } from './util';
-import type { StoreState } from './stores';
+import { type StoreState, type Tool, useStore } from './stores';
 import { SCENE_OBJECT_HANDLERS } from './scene_objects';
+
+type SelectableGameObject = Phaser.GameObjects.GameObject &
+  Phaser.GameObjects.Components.Depth &
+  Phaser.GameObjects.Components.Transform &
+  Phaser.GameObjects.Components.Size;
+
+function isSelectableGameObject(gameObject: Phaser.GameObjects.GameObject): gameObject is SelectableGameObject {
+  const selectableGameObject = gameObject as SelectableGameObject;
+  return (
+    selectableGameObject.width !== undefined &&
+    selectableGameObject.x !== undefined &&
+    selectableGameObject.depth !== undefined
+  );
+}
 
 export default class EditorScene extends Phaser.Scene {
   desk!: Phaser.GameObjects.Rectangle;
@@ -19,14 +33,25 @@ export default class EditorScene extends Phaser.Scene {
 
     this.sceneGameObjects = this.add.group();
 
-    this.stateMachine = new StateMachine('idle', {
-      idle: new IdleState(this),
-      dragging: new DraggingState(this),
+    this.stateMachine = new StateMachine('select', {
+      select: new SelectState(this),
+      selectDragging: new SelectDragging(this),
+      hand: new HandState(this),
+      handDragging: new HandDragging(this),
     });
   }
 
   centerDesk() {
     this.cameras.main.centerOn(this.desk.x + this.desk.displayWidth / 2, this.desk.y + this.desk.displayHeight / 2);
+  }
+
+  setActiveTool(tool: Tool) {
+    switch (tool) {
+      case 'hand':
+        return this.stateMachine.transition('hand');
+      case 'select':
+        return this.stateMachine.transition('select');
+    }
   }
 
   syncState({ sceneProperties, sceneObjects, editorFocus }: StoreState) {
@@ -38,7 +63,6 @@ export default class EditorScene extends Phaser.Scene {
       const handler = SCENE_OBJECT_HANDLERS[sceneObject.type];
       const gameObject = this.getGameObjectForSceneObjectId(sceneObject.id);
       if (!gameObject) {
-        console.log('create');
         const gameObject = handler.addGameObject(sceneObject, this);
         gameObject.setData('id', sceneObject.id);
         this.sceneGameObjects.add(gameObject);
@@ -92,7 +116,77 @@ class EditorState extends State {
   }
 }
 
-class IdleState extends EditorState {
+class SelectState extends EditorState {
+  handleEntered() {
+    this.scene.input.setDefaultCursor('default');
+  }
+
+  execute() {
+    const pointer = this.scene.input.activePointer;
+    if (pointer.isDown) {
+      const gameObjects = this.scene.sceneGameObjects
+        .getChildren()
+        .filter(isSelectableGameObject)
+        .toReversed() // Reverse stability of sort
+        .toSorted((a, b) => b.depth - a.depth);
+
+      for (const gameObject of gameObjects) {
+        const hitArea = new Phaser.Geom.Rectangle(
+          Phaser.Display.Bounds.GetLeft(gameObject),
+          Phaser.Display.Bounds.GetTop(gameObject),
+          (gameObject as unknown as Phaser.Types.Math.RectangleLike).width,
+          (gameObject as unknown as Phaser.Types.Math.RectangleLike).height
+        );
+        if (hitArea.contains(pointer.worldX, pointer.worldY)) {
+          this.scene.game.events.emit('selectGameObject', gameObject);
+          return this.transition('selectDragging', gameObject);
+        }
+      }
+
+      // We clicked but not on any object; check to see if we need to deselect
+      const storeState = useStore.getState();
+      if (storeState.editorFocus.type !== 'scene') {
+        storeState.focusScene();
+      }
+    }
+  }
+}
+
+class SelectDragging extends EditorState {
+  gameObject!: SelectableGameObject;
+  dragModX!: number;
+  dragModY!: number;
+  lastMoveTime!: number;
+
+  handleEntered(gameObject: SelectableGameObject) {
+    const pointer = this.scene.input.activePointer;
+
+    this.gameObject = gameObject;
+    this.dragModX = pointer.worldX - gameObject.x;
+    this.dragModY = pointer.worldY - gameObject.y;
+    this.lastMoveTime = pointer.moveTime;
+  }
+
+  execute() {
+    const pointer = this.scene.input.activePointer;
+
+    if (!pointer.isDown) {
+      return this.transition('select');
+    }
+
+    if (pointer.moveTime !== this.lastMoveTime) {
+      this.scene.game.events.emit(
+        'moveGameObject',
+        this.gameObject,
+        Math.floor(pointer.worldX - this.dragModX),
+        Math.floor(pointer.worldY - this.dragModY)
+      );
+      this.lastMoveTime = pointer.moveTime;
+    }
+  }
+}
+
+class HandState extends EditorState {
   handleEntered() {
     this.scene.input.setDefaultCursor('grab');
   }
@@ -101,12 +195,12 @@ class IdleState extends EditorState {
     const pointer = this.scene.input.activePointer;
     const camera = this.scene.cameras.main;
     if (pointer.isDown) {
-      return this.transition('dragging', { x: camera.scrollX, y: camera.scrollY }, { x: pointer.x, y: pointer.y });
+      return this.transition('handDragging', { x: camera.scrollX, y: camera.scrollY }, { x: pointer.x, y: pointer.y });
     }
   }
 }
 
-class DraggingState extends EditorState {
+class HandDragging extends EditorState {
   dragOrigin!: Phaser.Types.Math.Vector2Like;
   cameraOrigin!: Phaser.Types.Math.Vector2Like;
 
@@ -121,7 +215,7 @@ class DraggingState extends EditorState {
     const pointer = this.scene.input.activePointer;
 
     if (!pointer.isDown) {
-      return this.transition('idle');
+      return this.transition('hand');
     }
 
     camera.setScroll(
